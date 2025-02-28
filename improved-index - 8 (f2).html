@@ -1,0 +1,1848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ASCII Art Generator - Revised File Upload Fix</title>
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+  <style>
+    /* ========= Root Variables and Global Styles ========= */
+    :root {
+      --primary: #6200ee;
+      --primary-dark: #3700b3;
+      --primary-light: #bb86fc;
+      --secondary: #03dac6;
+      --secondary-dark: #018786;
+      --error: #cf6679;
+      --dark-bg: #121212;
+      --dark-surface: #1e1e1e;
+      --dark-card: #2d2d2d;
+      --dark-text: #e0e0e0;
+      --dark-text-secondary: #a0a0a0;
+      --light-bg: #f5f5f5;
+      --light-surface: #ffffff;
+      --light-card: #f0f0f0;
+      --light-text: #121212;
+      --light-text-secondary: #5f5f5f;
+      --sidebar-width: 320px;
+      --sidebar-collapsed: 40px;
+      --transition-speed: 0.3s;
+      --border-radius: 8px;
+      --shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      --dark-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--dark-bg);
+      color: var(--dark-text);
+      transition: background-color var(--transition-speed), color var(--transition-speed);
+      line-height: 1.6;
+    }
+    /* Dark-mode select styling */
+    body:not(.light-mode) select { background-color: #333; color: #eee; }
+    body.light-mode {
+      background-color: var(--light-bg);
+      color: var(--light-text);
+    }
+
+    /* ========= Layout ========= */
+    .app-container {
+      display: flex;
+      height: 100vh;
+      width: 100%;
+      position: relative;
+      overflow-x: hidden;
+    }
+    /* Sidebar */
+    .sidebar {
+      width: var(--sidebar-width);
+      background-color: var(--dark-surface);
+      height: 100vh;
+      overflow-y: auto;
+      transition: width var(--transition-speed), transform var(--transition-speed);
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 100;
+      padding: 20px;
+    }
+    .sidebar.collapsed {
+      width: var(--sidebar-collapsed);
+      overflow: hidden;
+    }
+    .sidebar-toggle {
+      position: absolute;
+      top: 10px;
+      right: -16px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 5;
+      transition: background-color var(--transition-speed);
+    }
+    .sidebar-toggle:hover { background: var(--primary-dark); }
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .sidebar-header h1 {
+      font-size: 1.5rem;
+      margin-left: 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    body.light-mode .sidebar { background-color: var(--light-surface); box-shadow: var(--shadow); }
+    .content {
+      flex: 1;
+      margin-left: var(--sidebar-width);
+      padding: 20px;
+      transition: margin-left var(--transition-speed);
+      height: 100vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .content.expanded { margin-left: var(--sidebar-collapsed); }
+
+    /* ========= Preview Header (Stats) and Progress Bar ========= */
+    .stats {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--primary-light);
+    }
+    .stat-card {
+      background-color: var(--dark-surface);
+      border-radius: var(--border-radius);
+      padding: 10px;
+      flex: 1;
+      text-align: center;
+      box-shadow: var(--dark-shadow);
+      font-size: 0.9rem;
+    }
+    body.light-mode .stat-card { background-color: var(--light-surface); box-shadow: var(--shadow); }
+    .progress-container {
+      height: 4px;
+      width: 100%;
+      background-color: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 15px;
+    }
+    body.light-mode .progress-container { background-color: rgba(0,0,0,0.1); }
+    .progress-bar {
+      height: 100%;
+      width: 0;
+      background-color: var(--primary);
+      transition: width 0.3s;
+    }
+
+    /* ========= Preview Container ========= */
+    .preview-section {
+      display: flex;
+      flex-direction: column;
+      border: 2px solid var(--primary);
+      border-radius: var(--border-radius);
+      overflow: hidden;
+      margin-top: 10px;
+    }
+    .ascii-wrapper {
+      flex: 1;
+      overflow: auto;
+      padding: 15px;
+      background-color: var(--dark-bg);
+    }
+    body.light-mode .ascii-wrapper { background-color: white; }
+    #ascii-art {
+      white-space: pre;
+      font-family: "Consolas", Monaco, "Liberation Mono", monospace;
+      font-size: 7px;
+      line-height: 7px;
+    }
+    body.light-mode #ascii-art { color: var(--light-text); }
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+      padding: 10px;
+      justify-content: center;
+    }
+
+    /* ========= Section Cards & Controls ========= */
+    .section-card {
+      background-color: var(--dark-card);
+      border-radius: var(--border-radius);
+      padding: 15px;
+      margin-bottom: 15px;
+      transition: background-color var(--transition-speed);
+      box-shadow: var(--dark-shadow);
+    }
+    body.light-mode .section-card { background-color: var(--light-card); box-shadow: var(--shadow); }
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      cursor: pointer;
+    }
+    .section-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--primary-light);
+      display: flex;
+      align-items: center;
+    }
+    .section-title i { margin-right: 8px; }
+    body.light-mode .section-title { color: var(--primary); }
+    .section-content {
+      max-height: 1000px;
+      overflow: hidden;
+      transition: max-height 0.3s ease-in-out;
+    }
+    .section-content.collapsed { max-height: 0; }
+    .control {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .control-label {
+      flex: 0 0 40%;
+      font-size: 0.9rem;
+      color: var(--dark-text-secondary);
+    }
+    body.light-mode .control-label { color: var(--light-text-secondary); }
+    .control-input { flex: 1; display: flex; align-items: center; }
+    input[type="range"] {
+      flex: 1;
+      height: 6px;
+      -webkit-appearance: none;
+      background: rgba(255,255,255,0.2);
+      border-radius: 3px;
+      outline: none;
+      transition: background var(--transition-speed);
+    }
+    body.light-mode input[type="range"] { background: rgba(0,0,0,0.1); }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--primary-light);
+      cursor: pointer;
+      transition: background var(--transition-speed);
+    }
+    body.light-mode input[type="range"]::-webkit-slider-thumb { background: var(--primary); }
+    .value-label {
+      min-width: 40px;
+      text-align: right;
+      margin-left: 10px;
+      font-size: 0.85rem;
+      font-variant-numeric: tabular-nums;
+    }
+    select, input[type="text"], input[type="file"] {
+      padding: 6px 10px;
+      background-color: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 4px;
+      color: var(--dark-text);
+      font-size: 0.9rem;
+      width: 100%;
+      transition: all var(--transition-speed);
+    }
+    body.light-mode select, body.light-mode input[type="text"], body.light-mode input[type="file"] {
+      background-color: rgba(0,0,0,0.05);
+      border: 1px solid rgba(0,0,0,0.1);
+      color: var(--light-text);
+    }
+    select:focus, input[type="text"]:focus {
+      border-color: var(--primary-light);
+      outline: none;
+    }
+    body.light-mode select:focus, body.light-mode input[type="text"]:focus {
+      border-color: var(--primary);
+    }
+    .checkbox-control {
+      display: flex;
+      align-items: center;
+    }
+    .checkbox-control input[type="checkbox"] {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 3px;
+      margin-right: 8px;
+      cursor: pointer;
+      position: relative;
+      transition: all var(--transition-speed);
+    }
+    body.light-mode .checkbox-control input[type="checkbox"] {
+      background: rgba(0,0,0,0.05);
+      border: 1px solid rgba(0,0,0,0.2);
+    }
+    .checkbox-control input[type="checkbox"]:checked {
+      background-color: var(--primary-light);
+      border-color: var(--primary-light);
+    }
+    body.light-mode .checkbox-control input[type="checkbox"]:checked {
+      background-color: var(--primary);
+      border-color: var(--primary);
+    }
+    .checkbox-control input[type="checkbox"]:checked::after {
+      content: '✓';
+      font-size: 14px;
+      color: white;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    /* ========= Buttons ========= */
+    .btn {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color var(--transition-speed);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    .btn:hover { background-color: var(--primary-dark); }
+    .btn i { margin-right: 6px; }
+    .btn-reset { background-color: var(--error); }
+    .btn-reset:hover { background-color: #b54c66; }
+    .btn-secondary {
+      background-color: var(--secondary);
+      color: #000;
+    }
+    .btn-secondary:hover { background-color: var(--secondary-dark); }
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+      flex-wrap: wrap;
+    }
+    /* ========= Tooltips ========= */
+    .tooltip {
+      position: relative;
+      display: inline-block;
+      margin-left: 5px;
+    }
+    .tooltip i { color: var(--dark-text-secondary); font-size: 0.85rem; }
+    body.light-mode .tooltip i { color: var(--light-text-secondary); }
+    .tooltip .tooltip-text {
+      visibility: hidden;
+      width: 250px;
+      background-color: rgba(0,0,0,0.9);
+      color: white;
+      text-align: center;
+      padding: 5px;
+      border-radius: 4px;
+      position: absolute;
+      z-index: 100;
+      bottom: 125%;
+      left: 50%;
+      transform: translateX(-50%);
+      opacity: 0;
+      transition: opacity var(--transition-speed);
+      font-size: 0.8rem;
+      pointer-events: none;
+    }
+    .tooltip:hover .tooltip-text {
+      visibility: visible;
+      opacity: 1;
+    }
+    /* ========= File Input Wrapper (Fix for Upload) ========= */
+    .file-input-wrapper {
+      position: relative;
+      overflow: hidden;
+      display: inline-block;
+    }
+    .file-input-wrapper input[type="file"] {
+      position: absolute;
+      left: 0;
+      top: 0;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+      z-index: 10;  /*Ensures the file input is clickable */
+      pointer-events: all;
+    }
+
+    .drop-area {
+      border: 2px dashed rgba(255,255,255,0.3);
+      border-radius: var(--border-radius);
+      padding: 20px;
+      text-align: center;
+      margin-bottom: 15px;
+      transition: all var(--transition-speed);
+      cursor: pointer;
+    }
+    .drop-area:hover, .drop-area.drag-over {
+      border-color: var(--primary-light);
+      background-color: rgba(98,0,238,0.05);
+    }
+    body.light-mode .drop-area:hover, body.light-mode .drop-area.drag-over {
+      border-color: var(--primary);
+      background-color: rgba(98,0,238,0.05);
+    }
+
+
+    /* ========= Notifications ========= */
+    .notifications {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 1000;
+    }
+    .notification {
+      background-color: var(--dark-surface);
+      color: var(--dark-text);
+      box-shadow: var(--dark-shadow);
+      padding: 10px 15px;
+      border-radius: var(--border-radius);
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      max-width: 300px;
+      animation: fadeIn 0.3s, fadeOut 0.3s 3s forwards;
+    }
+    body.light-mode .notification {
+      background-color: var(--light-surface);
+      color: var(--light-text);
+      box-shadow: var(--shadow);
+    }
+    .notification.success { border-left: 4px solid var(--secondary); }
+    .notification.error { border-left: 4px solid var(--error); }
+    .notification i { margin-right: 10px; font-size: 1.2rem; }
+    .notification.success i { color: var(--secondary); }
+    .notification.error i { color: var(--error); }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-20px); } }
+    
+    /* ========= Responsive Adjustments ========= */
+    @media screen and (max-width: 992px) {
+      .sidebar { transform: translateX(-100%); box-shadow: none; }
+      .sidebar.visible { transform: translateX(0); box-shadow: var(--dark-shadow); }
+      .content { margin-left: 0; }
+      .content.expanded { margin-left: 0; }
+      .mobile-menu-toggle {
+        display: block;
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 110;
+        background-color: var(--primary);
+        color: white;
+        border: none;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: var(--shadow);
+      }
+    }
+    @media screen and (max-width: 576px) {
+      .sidebar { width: 100%; }
+      .btn-group { flex-direction: column; }
+    }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+      background-color: rgba(255,255,255,0.2);
+      border-radius: 4px;
+    }
+    body.light-mode ::-webkit-scrollbar-thumb { background-color: rgba(0,0,0,0.2); }
+    ::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,0.3); }
+    body.light-mode ::-webkit-scrollbar-thumb:hover { background-color: rgba(0,0,0,0.3); }
+  </style>
+</head>
+<body>
+  <!-- Notifications Container -->
+  <div class="notifications" id="notifications"></div>
+  
+  <!-- Mobile Menu Toggle -->
+  <button class="mobile-menu-toggle" id="mobileMenuToggle">
+    <i class="fas fa-bars"></i>
+  </button>
+  
+  <!-- Instructions Button and Overlay -->
+  <button class="btn" id="instructionsBtn" style="position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 110;">
+    <i class="fas fa-info-circle"></i> Instructions
+  </button>
+  <div id="instructionsOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); color: #fff; z-index: 120; padding: 20px; overflow-y: auto;">
+    <h2>How to Use the ASCII Art Generator</h2>
+    <p>
+      1. Upload an image using the sidebar (click or drag-and-drop).<br>
+      2. Adjust basic settings (width, brightness, contrast, blur, invert).<br>
+      3. Choose dithering options if desired (Floyd–Steinberg, Atkinson, Noise, Ordered).<br>
+      4. Select a character set or enter your own custom gradient.<br>
+      5. Choose an edge detection method and adjust its threshold.<br>
+      6. In Advanced Settings, enable colored output and select a color sampling method.<br>
+      7. The preview updates live as you change settings.<br>
+      8. Use Refresh Preview if needed, or try Generate Random for a surprise.<br>
+      9. Use the buttons below the preview to copy, download, or share your ASCII art.
+    </p>
+    <button class="btn btn-reset" id="closeInstructionsBtn">Close Instructions</button>
+  </div>
+  
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <!-- Sidebar Toggle Button -->
+      <button class="sidebar-toggle" id="sidebarToggle">
+        <i class="fas fa-chevron-left" id="toggleIcon"></i>
+      </button>
+      <!-- Sidebar Header -->
+      <div class="sidebar-header">
+        <i class="fas fa-text-height fa-lg" style="color: var(--primary-light);"></i>
+        <h1>ASCII Art Generator</h1>
+      </div>
+      
+      <!-- Global Settings Section -->
+      <div class="section-card">
+        <div class="section-header" data-section="global">
+          <div class="section-title">
+            <i class="fas fa-cog"></i>
+            Global Settings
+          </div>
+          <i class="fas fa-chevron-up" id="globalIcon"></i>
+        </div>
+        <div class="section-content" id="globalContent">
+          <div class="control">
+            <div class="control-label">
+              Theme
+              <span class="tooltip">
+                <i class="fas fa-info-circle"></i>
+                <span class="tooltip-text">Switch between light and dark mode</span>
+              </span>
+            </div>
+            <div class="control-input">
+              <select id="theme">
+                <option value="dark" selected>Dark</option>
+                <option value="light">Light</option>
+              </select>
+            </div>
+          </div>
+          <div class="control">
+            <div class="control-label">
+              Ignore White
+              <span class="tooltip">
+                <i class="fas fa-info-circle"></i>
+                <span class="tooltip-text">Skip pure white pixels in the output</span>
+              </span>
+            </div>
+            <div class="control-input checkbox-control">
+              <input type="checkbox" id="ignoreWhite" checked>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Upload Image Section -->
+      <div class="section-card">
+        <div class="section-header" data-section="upload">
+          <div class="section-title">
+            <i class="fas fa-upload"></i>
+            1. Upload Image
+          </div>
+          <i class="fas fa-chevron-up" id="uploadIcon"></i>
+        </div>
+        <div class="section-content" id="uploadContent">
+          <div class="drop-area" id="dropArea">
+            <i class="fas fa-file-image"></i>
+            <p>Drop image here or click to browse</p>
+            <p class="small" style="font-size: 0.8rem; color: var(--dark-text-secondary);">
+              Supports JPG, PNG, GIF, WebP
+            </p>
+            <div class="file-input-wrapper">
+              <input type="file" id="upload" accept="image/*">
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Basic Adjustments Section -->
+      <div class="section-card">
+        <div class="section-header" data-section="adjust">
+          <div class="section-title">
+            <i class="fas fa-sliders-h"></i>
+            2. Basic Adjustments
+          </div>
+          <i class="fas fa-chevron-up" id="adjustIcon"></i>
+        </div>
+        <div class="section-content" id="adjustContent">
+          <div class="control">
+            <div class="control-label">
+              Output Width (chars)
+              <span class="tooltip">
+                <i class="fas fa-info-circle"></i>
+                <span class="tooltip-text">Width of the ASCII art in characters</span>
+              </span>
+            </div>
+            <div class="control-input">
+              <input type="range" id="asciiWidth" min="20" max="300" value="150">
+              <span class="value-label" id="asciiWidthVal">150</span>
+            </div>
+          </div>
+          <div class="control">
+            <div class="control-label">Brightness</div>
+            <div class="control-input">
+              <input type="range" id="brightness" min="-100" max="100" value="0">
+              <span class="value-label" id="brightnessVal">0</span>
+            </div>
+          </div>
+          <div class="control">
+            <div class="control-label">Contrast</div>
+            <div class="control-input">
+              <input type="range" id="contrast" min="-100" max="100" value="0">
+              <span class="value-label" id="contrastVal">0</span>
+            </div>
+          </div>
+          <div class="control">
+            <div class="control-label">
+              Blur (px)
+              <span class="tooltip">
+                <i class="fas fa-info-circle"></i>
+                <span class="tooltip-text">Apply gaussian blur before processing</span>
+              </span>
+            </div>
+            <div class="control-input">
+              <input type="range" id="blur" min="0" max="10" step="0.5" value="0">
+              <span class="value-label" id="blurVal">0</span>
+            </div>
+          </div>
+          <div class="control">
+            <div class="control-label">Invert Colors</div>
+            <div class="control-input checkbox-control">
+              <input type="checkbox" id="invert">
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Dithering Options Section -->
+      <div class="section-card">
+        <div class="section-header" data-section="dither">
+          <div class="section-title">
+            <i class="fas fa-th"></i>
+            3. Dithering Options
+          </div>
+          <i class="fas fa-chevron-up" id="ditherIcon"></i>
+        </div>
+        <div class="section-content" id="ditherContent">
+          <div class="control">
+            <div class="control-label">
+              Enable Dithering
+              <span class="tooltip">
+                <i class="fas fa-info-circle"></i>
+                <span class="tooltip-text">Use dithering to improve low-contrast areas</span>
+              </span>
+            </div>
+            <div class="control-input checkbox-control">
+              <input type="checkbox" id="dithering" checked>
+            </div>
+          </div>
+          <div class="control">
+            <div class="control-label">Dither Algorithm</div>
+            <div class="control-input">
+              <select id="ditherAlgorithm">
+                <option value="floyd" selected>Floyd–Steinberg</option>
+                <option value="atkinson">Atkinson</option>
+                <option value="noise">Noise</option>
+                <option value="ordered">Ordered</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Character Set Section -->
+      <div class="section-card">
+        <div class="section-header" data-section="charset">
+          <div class="section-title">
+            <i class="fas fa-font"></i>
+            4. Character Set
+          </div>
+          <i class="fas fa-chevron-up" id="charsetIcon"></i>
+        </div>
+        <div class="section-content" id="charsetContent">
+          <div class="control">
+            <div class="control-label">
+              Character Set
+              <span class="tooltip">
+                <i class="fas fa-info-circle"></i>
+                <span class="tooltip-text">Choose which characters to use in the ASCII art</span>
+              </span>
+            </div>
+            <div class="control-input">
+              <select id="charset">
+                <option value="detailed" selected>Detailed</option>
+                <option value="standard">Standard</option>
+                <option value="blocks">Blocks</option>
+                <option value="binary">Binary</option>
+                <option value="hex">Hex</option>
+                <option value="manual">Manual</option>
+              </select>
+            </div>
+          </div>
+          <div class="control" id="manualCharControl" style="display: none;">
+            <div class="control-label">Manual Character</div>
+            <div class="control-input">
+              <input type="text" id="manualCharInput" maxlength="5" value="0">
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Edge Detection Section -->
+      <div class="section-card">
+        <div class="section-header" data-section="edge">
+          <div class="section-title">
+            <i class="fas fa-border-all"></i>
+            5. Edge Detection
+          </div>
+          <i class="fas fa-chevron-up" id="edgeIcon"></i>
+        </div>
+        <div class="section-content" id="edgeContent">
+          <div class="control">
+            <div class="control-label">
+              Edge Detection Method
+              <span class="tooltip">
+                <i class="fas fa-info-circle"></i>
+                <span class="tooltip-text">Select an edge detection algorithm</span>
+              </span>
+            </div>
+            <div class="control-input">
+              <select id="edgeMethod">
+                <option value="none" selected>No Edge Detection</option>
+                <option value="sobel">Sobel Edge Detection</option>
+                <option value="dog">DoG (Contour) Detection</option>
+              </select>
+            </div>
+          </div>
+          <div class="control" id="sobelThresholdControl" style="display: none;">
+            <div class="control-label">
+              Sobel Threshold:
+              <span class="tooltip">
+                <i class="fas fa-info-circle"></i>
+                <span class="tooltip-text">Threshold for Sobel (0-255)</span>
+              </span>
+            </div>
+            <div class="control-input">
+              <input type="range" id="edgeThreshold" min="0" max="255" value="100">
+              <span class="value-label" id="edgeThresholdVal">100</span>
+            </div>
+          </div>
+          <div class="control" id="dogThresholdControl" style="display: none;">
+            <div class="control-label">
+              DoG Threshold:
+              <span class="tooltip">
+                <i class="fas fa-info-circle"></i>
+                <span class="tooltip-text">Threshold for DoG (0-100)</span>
+              </span>
+            </div>
+            <div class="control-input">
+              <input type="range" id="dogThreshold" min="0" max="100" value="50">
+              <span class="value-label" id="dogThresholdVal">50</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Advanced Settings Section -->
+      <div class="section-card">
+        <div class="section-header" data-section="advanced">
+          <div class="section-title">
+            <i class="fas fa-cogs"></i>
+            6. Advanced Settings
+          </div>
+          <i class="fas fa-chevron-up" id="advancedIcon"></i>
+        </div>
+        <div class="section-content" id="advancedContent">
+          <div class="control">
+            <div class="control-label">
+              Color Output
+              <span class="tooltip">
+                <i class="fas fa-info-circle"></i>
+                <span class="tooltip-text">Generate colored ASCII art</span>
+              </span>
+            </div>
+            <div class="control-input checkbox-control">
+              <input type="checkbox" id="colorOutput">
+            </div>
+          </div>
+          <div class="control">
+            <div class="control-label">Color Sampling</div>
+            <div class="control-input">
+              <select id="colorSampling">
+                <option value="average" selected>Average</option>
+                <option value="dominant">Dominant</option>
+                <option value="center">Center</option>
+              </select>
+            </div>
+          </div>
+          <div class="control">
+            <div class="control-label">Font Size (px)</div>
+            <div class="control-input">
+              <input type="range" id="fontSize" min="5" max="15" value="7">
+              <span class="value-label" id="fontSizeVal">7</span>
+            </div>
+          </div>
+          <div class="control">
+            <div class="control-label">Line Height (%)</div>
+            <div class="control-input">
+              <input type="range" id="lineHeight" min="50" max="150" value="100">
+              <span class="value-label" id="lineHeightVal">100</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Buttons Section -->
+      <div class="btn-group">
+        <button class="btn btn-reset" id="resetBtn">
+          <i class="fas fa-undo"></i> Reset All
+        </button>
+        <button class="btn" id="generateBtn">
+          <i class="fas fa-play"></i> Generate Random
+        </button>
+        <button class="btn" id="refreshBtn">
+          <i class="fas fa-sync"></i> Refresh Preview
+        </button>
+      </div>
+    </aside>
+    
+    <!-- Main Content / Preview Section -->
+    <main class="content" id="content">
+      <!-- Preview Header (Stats) -->
+      <div class="stats" id="stats">
+        <div class="stat-card">
+          <div id="originalSize">-</div>
+          <div style="font-size: 0.8rem;">Original Size</div>
+        </div>
+        <div class="stat-card">
+          <div id="processTime">-</div>
+          <div style="font-size: 0.8rem;">Process Time</div>
+        </div>
+        <div class="stat-card">
+          <div id="charCount">-</div>
+          <div style="font-size: 0.8rem;">Characters</div>
+        </div>
+      </div>
+      <!-- Progress Bar -->
+      <div class="progress-container">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <!-- Preview Container -->
+      <div class="preview-section">
+        <div class="ascii-wrapper">
+          <pre id="ascii-art">Placeholder Preview: A majestic dragon roars here!</pre>
+        </div>
+        <div class="action-buttons">
+          <button class="btn" id="copyBtn">
+            <i class="fas fa-copy"></i> Copy ASCII Art
+          </button>
+          <button class="btn btn-secondary" id="downloadBtn">
+            <i class="fas fa-download"></i> Download as PNG
+          </button>
+          <button class="btn" id="shareBtn">
+            <i class="fas fa-share-alt"></i> Share
+          </button>
+        </div>
+      </div>
+    </main>
+  </div>
+  
+  <!-- Hidden canvas for image processing -->
+  <canvas id="canvas" style="display: none;"></canvas>
+  
+  <script>
+    /* ========= Embedded JavaScript ========= */
+    document.addEventListener('DOMContentLoaded', function() {
+      // --- DOM References ---
+      const sidebar = document.getElementById('sidebar');
+      const content = document.getElementById('content');
+      const sidebarToggle = document.getElementById('sidebarToggle');
+      const toggleIcon = document.getElementById('toggleIcon');
+      const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+      const themeSelect = document.getElementById('theme');
+      const sectionHeaders = document.querySelectorAll('.section-header');
+      const dropArea = document.getElementById('dropArea');
+      const fileInput = document.getElementById('upload');
+      const asciiWidth = document.getElementById('asciiWidth');
+      const asciiWidthVal = document.getElementById('asciiWidthVal');
+      const brightness = document.getElementById('brightness');
+      const brightnessVal = document.getElementById('brightnessVal');
+      const contrast = document.getElementById('contrast');
+      const contrastVal = document.getElementById('contrastVal');
+      const blur = document.getElementById('blur');
+      const blurVal = document.getElementById('blurVal');
+      const invert = document.getElementById('invert');
+      const ignoreWhite = document.getElementById('ignoreWhite');
+      const dithering = document.getElementById('dithering');
+      const ditherAlgorithm = document.getElementById('ditherAlgorithm');
+      const charset = document.getElementById('charset');
+      const manualCharControl = document.getElementById('manualCharControl');
+      const manualCharInput = document.getElementById('manualCharInput');
+      const edgeMethod = document.getElementById('edgeMethod');
+      const edgeThreshold = document.getElementById('edgeThreshold');
+      const edgeThresholdVal = document.getElementById('edgeThresholdVal');
+      const dogThreshold = document.getElementById('dogThreshold');
+      const dogThresholdVal = document.getElementById('dogThresholdVal');
+      const fontSize = document.getElementById('fontSize');
+      const fontSizeVal = document.getElementById('fontSizeVal');
+      const lineHeight = document.getElementById('lineHeight');
+      const lineHeightVal = document.getElementById('lineHeightVal');
+      const resetBtn = document.getElementById('resetBtn');
+      const generateBtn = document.getElementById('generateBtn');
+      const refreshBtn = document.getElementById('refreshBtn');
+      const copyBtn = document.getElementById('copyBtn');
+      const downloadBtn = document.getElementById('downloadBtn');
+      const shareBtn = document.getElementById('shareBtn');
+      const asciiArt = document.getElementById('ascii-art');
+      const notifications = document.getElementById('notifications');
+      const stats = document.getElementById('stats');
+      
+      // Instructions overlay elements
+      const instructionsBtn = document.getElementById('instructionsBtn');
+      const instructionsOverlay = document.getElementById('instructionsOverlay');
+      const closeInstructionsBtn = document.getElementById('closeInstructionsBtn');
+      
+      let currentImage = null;
+      const baseFontSize = 7;
+      let liveUpdateTimeout;
+      
+      // --- Helper: Clamp ---
+      function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+      
+      // --- Sidebar Toggle ---
+      function toggleSidebar() {
+        sidebar.classList.toggle('collapsed');
+        content.classList.toggle('expanded');
+        if (sidebar.classList.contains('collapsed')) {
+          toggleIcon.classList.replace('fa-chevron-left', 'fa-chevron-right');
+        } else {
+          toggleIcon.classList.replace('fa-chevron-right', 'fa-chevron-left');
+        }
+      }
+      function toggleMobileSidebar() { sidebar.classList.toggle('visible'); }
+      
+      // --- Apply Theme ---
+      function applyTheme(theme) {
+        if (theme === 'light') document.body.classList.add('light-mode');
+        else document.body.classList.remove('light-mode');
+      }
+      
+      // --- Section Collapse/Expand ---
+      sectionHeaders.forEach(header => {
+        header.addEventListener('click', function() {
+          const sectionName = this.getAttribute('data-section');
+          const contentEl = document.getElementById(sectionName + "Content");
+          const icon = document.getElementById(sectionName + "Icon");
+          contentEl.classList.toggle('collapsed');
+          if (contentEl.classList.contains('collapsed')) icon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+          else icon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+        });
+      });
+      
+      // --- Update Range Labels and Text Styles ---
+      function updateRangeLabels() {
+        asciiWidthVal.textContent = asciiWidth.value;
+        brightnessVal.textContent = brightness.value;
+        contrastVal.textContent = contrast.value;
+        blurVal.textContent = blur.value;
+        fontSizeVal.textContent = fontSize.value;
+        lineHeightVal.textContent = lineHeight.value;
+      }
+      function updateTextStyles() {
+        asciiArt.style.fontSize = fontSize.value + "px";
+        asciiArt.style.lineHeight = (fontSize.value * (lineHeight.value / 100)) + "px";
+      }
+      
+      // --- Drag & Drop Handlers ---
+      function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+      function highlight() { dropArea.classList.add('drag-over'); }
+      function unhighlight() { dropArea.classList.remove('drag-over'); }
+      function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length) handleFiles(files);
+      }
+      function handleFileSelect(e) {
+        const files = e.target.files;
+        handleFiles(files);
+      }
+      function handleFiles(files) {
+        if (files.length === 0) return;
+        const file = files[0];
+        if (!file.type.match('image.*')) {
+          showNotification('Please upload an image file', 'error');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const img = new Image();
+          img.onload = function() { currentImage = img; generateAsciiArt(); };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+        fileInput.value = '';
+      }
+      
+      // --- Debounce Live Preview ---
+      function scheduleLiveUpdate() {
+        if (liveUpdateTimeout) clearTimeout(liveUpdateTimeout);
+        liveUpdateTimeout = setTimeout(() => { if (currentImage) generateAsciiArt(); }, 300);
+      }
+      
+      // --- Main ASCII Art Generation ---
+      function generateAsciiArt() {
+        if (!currentImage) { showNotification('Please upload an image first', 'error'); return; }
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const outputWidth = parseInt(asciiWidth.value);
+        const aspectRatio = currentImage.height / currentImage.width;
+        const outputHeight = Math.round(outputWidth * aspectRatio * 0.5);
+        canvas.width = outputWidth;
+        canvas.height = outputHeight;
+        ctx.filter = blur.value > 0 ? `blur(${blur.value}px)` : "none";
+        ctx.drawImage(currentImage, 0, 0, outputWidth, outputHeight);
+        
+        // Get image data and compute grayscale and store color values
+        const imageData = ctx.getImageData(0, 0, outputWidth, outputHeight);
+        const data = imageData.data;
+        const contrastValue = parseInt(contrast.value);
+        const brightnessValue = parseInt(brightness.value);
+        const contrastFactor = 259 * (contrastValue + 255) / (255 * (259 - contrastValue));
+        const gray = [];
+        const originalGray = [];
+        const colors = [];
+        for (let i = 0; i < data.length; i += 4) {
+          let r = data[i], g = data[i+1], b = data[i+2];
+          let lum = 0.299 * r + 0.587 * g + 0.114 * b;
+          if (invert.checked) lum = 255 - lum;
+          let adjusted = clamp(contrastFactor * (lum - 128) + 128 + brightnessValue, 0, 255);
+          gray.push(adjusted);
+          originalGray.push(adjusted);
+          colors.push({ r, g, b });
+        }
+        
+        // --- Dithering (Floyd–Steinberg or Noise) ---
+        if (dithering.checked) {
+          if (ditherAlgorithm.value === "floyd") {
+            for (let y = 0; y < outputHeight; y++) {
+              for (let x = 0; x < outputWidth; x++) {
+                let idx = y * outputWidth + x;
+                let oldPixel = gray[idx];
+                let newPixel = Math.round((oldPixel / 255) * 255);
+                let error = oldPixel - newPixel;
+                gray[idx] = newPixel;
+                if (x + 1 < outputWidth) gray[idx + 1] = clamp(gray[idx + 1] + error * (7/16), 0, 255);
+                if (x - 1 >= 0 && y + 1 < outputHeight) gray[idx - 1 + outputWidth] = clamp(gray[idx - 1 + outputWidth] + error * (3/16), 0, 255);
+                if (y + 1 < outputHeight) gray[idx + outputWidth] = clamp(gray[idx + outputWidth] + error * (5/16), 0, 255);
+                if (x + 1 < outputWidth && y + 1 < outputHeight) gray[idx + outputWidth + 1] = clamp(gray[idx + outputWidth + 1] + error * (1/16), 0, 255);
+              }
+            }
+          } else if (ditherAlgorithm.value === "noise") {
+            for (let i = 0; i < gray.length; i++) {
+              let noise = (Math.random() - 0.5) * (255 / 16);
+              gray[i] = clamp(gray[i] + noise, 0, 255);
+            }
+          }
+        }
+        
+        // --- Edge Detection ---
+        if (edgeMethod.value === "sobel") {
+          const threshold = parseInt(edgeThreshold.value, 10);
+          gray.splice(0, gray.length, ...applyEdgeDetection(gray, outputWidth, outputHeight, threshold));
+        } else if (edgeMethod.value === "dog") {
+          const threshold = parseInt(dogThreshold.value, 10);
+          for (let i = 0; i < gray.length - 1; i++) {
+            gray[i] = Math.abs(gray[i] - gray[i+1]);
+          }
+          for (let i = 0; i < gray.length; i++) {
+            gray[i] = (gray[i] > threshold) ? 0 : 255;
+          }
+        }
+        
+        // --- Character Mapping ---
+        let gradient;
+        switch (charset.value) {
+          case "standard": gradient = "@%#*+=-:."; break;
+          case "blocks": gradient = "█▓▒░ "; break;
+          case "binary": gradient = "01"; break;
+          case "manual": gradient = (manualCharInput.value || "0") + " "; break;
+          case "hex": gradient = "0123456789ABCDEF"; break;
+          case "detailed":
+          default: gradient = "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'.";
+            break;
+        }
+        const nLevels = gradient.length;
+        
+        // --- Color Output ---
+        const colorOutputEnabled = document.getElementById("colorOutput") && document.getElementById("colorOutput").checked;
+        let ascii = "";
+        for (let y = 0; y < outputHeight; y++) {
+          let line = "";
+          for (let x = 0; x < outputWidth; x++) {
+            let idx = y * outputWidth + x;
+            if (ignoreWhite.checked && originalGray[idx] > 250) {
+              line += colorOutputEnabled ? '<span>&nbsp;</span>' : " ";
+            } else {
+              let level = Math.floor((gray[idx] / 256) * nLevels);
+              let char = gradient.charAt(Math.min(level, nLevels - 1));
+              if (colorOutputEnabled) {
+                let col = colors[idx];
+                line += `<span style="color: rgb(${col.r}, ${col.g}, ${col.b})">${char}</span>`;
+              } else {
+                line += char;
+              }
+            }
+          }
+          ascii += line + "\n";
+        }
+        if (colorOutputEnabled) asciiArt.innerHTML = ascii;
+        else asciiArt.textContent = ascii;
+        
+        // --- Update Stats and Animate Progress Bar ---
+        const endTime = performance.now();
+        updateStats(currentImage.width + "×" + currentImage.height, ((endTime - startTime)/1000).toFixed(2) + "s", ascii.length);
+        const progBar = document.getElementById("progressBar");
+        progBar.style.width = "100%";
+        setTimeout(() => { progBar.style.width = "0%"; }, 2000);
+      }
+      
+      // --- Update Stats Header ---
+      function updateStats(originalSizeText, processTimeText, charCountText) {
+        document.getElementById("originalSize").textContent = originalSizeText;
+        document.getElementById("processTime").textContent = processTimeText;
+        document.getElementById("charCount").textContent = charCountText;
+      }
+      
+      // --- Simple Sobel Edge Detection ---
+      function applyEdgeDetection(gray, width, height, threshold) {
+        let edges = new Array(width * height).fill(255);
+        for (let y = 1; y < height - 1; y++) {
+          for (let x = 1; x < width - 1; x++) {
+            let idx = y * width + x;
+            let a = gray[(y-1)*width + (x-1)];
+            let b = gray[(y-1)*width + x];
+            let c = gray[(y-1)*width + (x+1)];
+            let d = gray[y*width + (x-1)];
+            let e = gray[y*width + x];
+            let f = gray[y*width + (x+1)];
+            let g = gray[(y+1)*width + (x-1)];
+            let h = gray[(y+1)*width + x];
+            let i = gray[(y+1)*width + (x+1)];
+            let Gx = (-1*a) + (0*b) + (1*c) +
+                     (-2*d) + (0*e) + (2*f) +
+                     (-1*g) + (0*h) + (1*i);
+            let Gy = (-1*a) + (-2*b) + (-1*c) +
+                     (0*d) + (0*e) + (0*f) +
+                     (1*g) + (2*h) + (1*i);
+            let magVal = Math.sqrt(Gx*Gx + Gy*Gy);
+            let normalized = (magVal/1442)*255;
+            edges[idx] = normalized > threshold ? 0 : 255;
+          }
+        }
+        return edges;
+      }
+      
+      // --- Generate Random Settings ---
+      function generateRandomAsciiArt() {
+        asciiWidth.value = Math.floor(Math.random()*(300-20+1)) + 20;
+        brightness.value = Math.floor(Math.random()*201) - 100;
+        contrast.value = Math.floor(Math.random()*201) - 100;
+        blur.value = (Math.random()*10).toFixed(1);
+        invert.checked = Math.random() < 0.5;
+        ignoreWhite.checked = Math.random() < 0.5;
+        dithering.checked = Math.random() < 0.5;
+        const ditherAlgos = ["floyd", "atkinson", "noise", "ordered"];
+        ditherAlgorithm.value = ditherAlgos[Math.floor(Math.random()*ditherAlgos.length)];
+        const charsetOptions = ["detailed", "standard", "blocks", "binary", "hex", "manual"];
+        charset.value = charsetOptions[Math.floor(Math.random()*charsetOptions.length)];
+        if (charset.value === "manual") {
+          manualCharControl.style.display = "flex";
+          const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+          manualCharInput.value = chars.charAt(Math.floor(Math.random()*chars.length));
+        } else {
+          manualCharControl.style.display = "none";
+        }
+        const edgeMethods = ["none", "sobel", "dog"];
+        edgeMethod.value = edgeMethods[Math.floor(Math.random()*edgeMethods.length)];
+        if (edgeMethod.value === "sobel") {
+          document.getElementById("sobelThresholdControl").style.display = "flex";
+          document.getElementById("dogThresholdControl").style.display = "none";
+          edgeThreshold.value = Math.floor(Math.random()*256);
+          edgeThresholdVal.textContent = edgeThreshold.value;
+        } else if (edgeMethod.value === "dog") {
+          document.getElementById("dogThresholdControl").style.display = "flex";
+          document.getElementById("sobelThresholdControl").style.display = "none";
+          dogThreshold.value = Math.floor(Math.random()*101);
+          dogThresholdVal.textContent = dogThreshold.value;
+        } else {
+          document.getElementById("sobelThresholdControl").style.display = "none";
+          document.getElementById("dogThresholdControl").style.display = "none";
+        }
+        fontSize.value = Math.floor(Math.random()*(15-5+1)) + 5;
+        lineHeight.value = Math.floor(Math.random()*(150-50+1)) + 50;
+        updateRangeLabels();
+        updateTextStyles();
+        generateAsciiArt();
+      }
+      
+      // --- Refresh Preview Button ---
+      refreshBtn.addEventListener("click", () => { if (currentImage) generateAsciiArt(); });
+      
+      // --- Copy, Download, Share Functions ---
+      function copyToClipboard() {
+        if (!asciiArt.textContent.trim()) { showNotification("No ASCII art to copy", "error"); return; }
+        navigator.clipboard.writeText(asciiArt.textContent)
+          .then(() => { showNotification("Copied to clipboard!", "success"); })
+          .catch(() => { showNotification("Failed to copy to clipboard", "error"); });
+      }
+      function downloadPNG() {
+        if (!asciiArt.textContent.trim()) { showNotification("No ASCII art to download", "error"); return; }
+        const asciiText = asciiArt.textContent;
+        const lines = asciiText.split("\n");
+        const scaleFactor = 2;
+        const borderMargin = 20 * scaleFactor;
+        const computedStyle = window.getComputedStyle(asciiArt);
+        const baseFont = parseInt(computedStyle.fontSize, 10);
+        const fontSizeScaled = baseFont * scaleFactor;
+        const tempCanvas = document.createElement("canvas");
+        const tempCtx = tempCanvas.getContext("2d");
+        tempCtx.font = `${fontSizeScaled}px Consolas, Monaco, "Liberation Mono", monospace`;
+        let maxLineWidth = 0;
+        for (let i = 0; i < lines.length; i++) {
+          const lineWidth = tempCtx.measureText(lines[i]).width;
+          if (lineWidth > maxLineWidth) maxLineWidth = lineWidth;
+        }
+        const lineHeightScaled = fontSizeScaled;
+        const textWidth = Math.ceil(maxLineWidth);
+        const textHeight = Math.ceil(lines.length * lineHeightScaled);
+        const canvasWidth = textWidth + 2 * borderMargin;
+        const canvasHeight = textHeight + 2 * borderMargin;
+        const offCanvas = document.createElement("canvas");
+        offCanvas.width = canvasWidth;
+        offCanvas.height = canvasHeight;
+        const offCtx = offCanvas.getContext("2d");
+        const bgColor = document.body.classList.contains("light-mode") ? "#fff" : "#000";
+        offCtx.fillStyle = bgColor;
+        offCtx.fillRect(0, 0, canvasWidth, canvasHeight);
+        offCtx.font = `${fontSizeScaled}px Consolas, Monaco, "Liberation Mono", monospace`;
+        offCtx.textBaseline = "top";
+        offCtx.fillStyle = document.body.classList.contains("light-mode") ? "#000" : "#eee";
+        for (let i = 0; i < lines.length; i++) {
+          offCtx.fillText(lines[i], borderMargin, borderMargin + i * lineHeightScaled);
+        }
+        offCanvas.toBlob(function(blob) {
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "ascii_art.png";
+          a.click();
+        });
+      }
+      function shareAsciiArt() {
+        if (!asciiArt.textContent.trim()) { showNotification("No ASCII art to share", "error"); return; }
+        if (navigator.share) {
+          navigator.share({
+            title: "ASCII Art",
+            text: asciiArt.textContent
+          })
+          .then(() => { showNotification("Shared successfully!", "success"); })
+          .catch((error) => { showNotification("Error sharing: " + error, "error"); });
+        } else {
+          showNotification("Web Share API not supported in your browser", "error");
+        }
+      }
+      
+      // --- Show Notification ---
+      function showNotification(message, type = "success") {
+        const notification = document.createElement("div");
+        notification.className = `notification ${type}`;
+        const icon = document.createElement("i");
+        icon.className = type === "success" ? "fas fa-check-circle" : "fas fa-exclamation-circle";
+        notification.appendChild(icon);
+        notification.appendChild(document.createTextNode(message));
+        notifications.appendChild(notification);
+        setTimeout(() => { notification.remove(); }, 4000);
+      }
+      
+      // --- Instructions Overlay Handlers ---
+      instructionsBtn.addEventListener("click", () => { instructionsOverlay.style.display = "block"; });
+      closeInstructionsBtn.addEventListener("click", () => { instructionsOverlay.style.display = "none"; });
+      
+      // --- Load Default Image for Preview ---
+      window.addEventListener("load", function() {
+        const defaultImg = new Image();
+        defaultImg.crossOrigin = "Anonymous";
+        defaultImg.src = "https://i.ibb.co/chHSSFQk/horse.png";
+        defaultImg.onload = function() {
+          currentImage = defaultImg;
+          generateAsciiArt();
+        };
+      });
+      
+      // --- Attach Live Preview Listeners ---
+      [asciiWidth, brightness, contrast, blur, fontSize, lineHeight, invert, ignoreWhite, dithering, ditherAlgorithm, charset, manualCharInput].forEach(ctrl => {
+        ctrl.addEventListener("input", scheduleLiveUpdate);
+        ctrl.addEventListener("change", scheduleLiveUpdate);
+      });
+      edgeMethod.addEventListener("change", () => {
+        if (edgeMethod.value === "sobel") {
+          document.getElementById("sobelThresholdControl").style.display = "flex";
+          document.getElementById("dogThresholdControl").style.display = "none";
+        } else if (edgeMethod.value === "dog") {
+          document.getElementById("dogThresholdControl").style.display = "flex";
+          document.getElementById("sobelThresholdControl").style.display = "none";
+        } else {
+          document.getElementById("sobelThresholdControl").style.display = "none";
+          document.getElementById("dogThresholdControl").style.display = "none";
+        }
+        scheduleLiveUpdate();
+      });
+      edgeThreshold.addEventListener("input", () => {
+        edgeThresholdVal.textContent = edgeThreshold.value;
+        scheduleLiveUpdate();
+      });
+      dogThreshold.addEventListener("input", () => {
+        dogThresholdVal.textContent = dogThreshold.value;
+        scheduleLiveUpdate();
+      });
+      
+      // --- Button Event Listeners ---
+      resetBtn.addEventListener("click", resetSettings);
+      generateBtn.addEventListener("click", generateRandomAsciiArt);
+      refreshBtn.addEventListener("click", () => { if (currentImage) generateAsciiArt(); });
+      copyBtn.addEventListener("click", copyToClipboard);
+      downloadBtn.addEventListener("click", downloadPNG);
+      shareBtn.addEventListener("click", shareAsciiArt);
+      
+      // --- Reset Settings ---
+      function resetSettings() {
+        asciiWidth.value = 150;
+        brightness.value = 0;
+        contrast.value = 0;
+        blur.value = 0;
+        dithering.checked = true;
+        ditherAlgorithm.value = "floyd";
+        invert.checked = false;
+        ignoreWhite.checked = true;
+        charset.value = "detailed";
+        manualCharControl.style.display = "none";
+        manualCharInput.value = "0";
+        edgeMethod.value = "none";
+        edgeThreshold.value = 100;
+        edgeThresholdVal.textContent = "100";
+        dogThreshold.value = 50;
+        dogThresholdVal.textContent = "50";
+        fontSize.value = 7;
+        lineHeight.value = 100;
+        updateRangeLabels();
+        updateTextStyles();
+        document.querySelectorAll(".section-content").forEach(el => el.classList.remove("collapsed"));
+        generateAsciiArt();
+      }
+      
+      // --- Update Stats Header ---
+      function updateStats(originalSizeText, processTimeText, charCountText) {
+        document.getElementById("originalSize").textContent = originalSizeText;
+        document.getElementById("processTime").textContent = processTimeText;
+        document.getElementById("charCount").textContent = charCountText;
+      }
+      
+      // --- Simple Sobel Edge Detection ---
+      function applyEdgeDetection(gray, width, height, threshold) {
+        let edges = new Array(width * height).fill(255);
+        for (let y = 1; y < height - 1; y++) {
+          for (let x = 1; x < width - 1; x++) {
+            let idx = y * width + x;
+            let a = gray[(y-1)*width + (x-1)];
+            let b = gray[(y-1)*width + x];
+            let c = gray[(y-1)*width + (x+1)];
+            let d = gray[y*width + (x-1)];
+            let e = gray[y*width + x];
+            let f = gray[y*width + (x+1)];
+            let g = gray[(y+1)*width + (x-1)];
+            let h = gray[(y+1)*width + x];
+            let i = gray[(y+1)*width + (x+1)];
+            let Gx = (-1*a) + (0*b) + (1*c) +
+                     (-2*d) + (0*e) + (2*f) +
+                     (-1*g) + (0*h) + (1*i);
+            let Gy = (-1*a) + (-2*b) + (-1*c) +
+                     (0*d) + (0*e) + (0*f) +
+                     (1*g) + (2*h) + (1*i);
+            let magVal = Math.sqrt(Gx*Gx + Gy*Gy);
+            let normalized = (magVal/1442)*255;
+            edges[idx] = normalized > threshold ? 0 : 255;
+          }
+        }
+        return edges;
+      }
+      
+      // --- Generate Random Settings ---
+      function generateRandomAsciiArt() {
+        asciiWidth.value = Math.floor(Math.random()*(300-20+1)) + 20;
+        brightness.value = Math.floor(Math.random()*201) - 100;
+        contrast.value = Math.floor(Math.random()*201) - 100;
+        blur.value = (Math.random()*10).toFixed(1);
+        invert.checked = Math.random() < 0.5;
+        ignoreWhite.checked = Math.random() < 0.5;
+        dithering.checked = Math.random() < 0.5;
+        const ditherAlgos = ["floyd", "atkinson", "noise", "ordered"];
+        ditherAlgorithm.value = ditherAlgos[Math.floor(Math.random()*ditherAlgos.length)];
+        const charsetOptions = ["detailed", "standard", "blocks", "binary", "hex", "manual"];
+        charset.value = charsetOptions[Math.floor(Math.random()*charsetOptions.length)];
+        if (charset.value === "manual") {
+          manualCharControl.style.display = "flex";
+          const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+          manualCharInput.value = chars.charAt(Math.floor(Math.random()*chars.length));
+        } else {
+          manualCharControl.style.display = "none";
+        }
+        const edgeMethods = ["none", "sobel", "dog"];
+        edgeMethod.value = edgeMethods[Math.floor(Math.random()*edgeMethods.length)];
+        if (edgeMethod.value === "sobel") {
+          document.getElementById("sobelThresholdControl").style.display = "flex";
+          document.getElementById("dogThresholdControl").style.display = "none";
+          edgeThreshold.value = Math.floor(Math.random()*256);
+          edgeThresholdVal.textContent = edgeThreshold.value;
+        } else if (edgeMethod.value === "dog") {
+          document.getElementById("dogThresholdControl").style.display = "flex";
+          document.getElementById("sobelThresholdControl").style.display = "none";
+          dogThreshold.value = Math.floor(Math.random()*101);
+          dogThresholdVal.textContent = dogThreshold.value;
+        } else {
+          document.getElementById("sobelThresholdControl").style.display = "none";
+          document.getElementById("dogThresholdControl").style.display = "none";
+        }
+        fontSize.value = Math.floor(Math.random()*(15-5+1)) + 5;
+        lineHeight.value = Math.floor(Math.random()*(150-50+1)) + 50;
+        updateRangeLabels();
+        updateTextStyles();
+        generateAsciiArt();
+      }
+      
+      // --- Refresh Preview Button ---
+      refreshBtn.addEventListener("click", () => { if (currentImage) generateAsciiArt(); });
+      
+      // --- Copy, Download, Share Handlers ---
+      function copyToClipboard() {
+        if (!asciiArt.textContent.trim()) { showNotification("No ASCII art to copy", "error"); return; }
+        navigator.clipboard.writeText(asciiArt.textContent)
+          .then(() => { showNotification("Copied to clipboard!", "success"); })
+          .catch(() => { showNotification("Failed to copy to clipboard", "error"); });
+      }
+      function downloadPNG() {
+        if (!asciiArt.textContent.trim()) { showNotification("No ASCII art to download", "error"); return; }
+        const asciiText = asciiArt.textContent;
+        const lines = asciiText.split("\n");
+        const scaleFactor = 2;
+        const borderMargin = 20 * scaleFactor;
+        const computedStyle = window.getComputedStyle(asciiArt);
+        const baseFont = parseInt(computedStyle.fontSize, 10);
+        const fontSizeScaled = baseFont * scaleFactor;
+        const tempCanvas = document.createElement("canvas");
+        const tempCtx = tempCanvas.getContext("2d");
+        tempCtx.font = `${fontSizeScaled}px Consolas, Monaco, "Liberation Mono", monospace`;
+        let maxLineWidth = 0;
+        for (let i = 0; i < lines.length; i++) {
+          const lineWidth = tempCtx.measureText(lines[i]).width;
+          if (lineWidth > maxLineWidth) maxLineWidth = lineWidth;
+        }
+        const lineHeightScaled = fontSizeScaled;
+        const textWidth = Math.ceil(maxLineWidth);
+        const textHeight = Math.ceil(lines.length * lineHeightScaled);
+        const canvasWidth = textWidth + 2 * borderMargin;
+        const canvasHeight = textHeight + 2 * borderMargin;
+        const offCanvas = document.createElement("canvas");
+        offCanvas.width = canvasWidth;
+        offCanvas.height = canvasHeight;
+        const offCtx = offCanvas.getContext("2d");
+        const bgColor = document.body.classList.contains("light-mode") ? "#fff" : "#000";
+        offCtx.fillStyle = bgColor;
+        offCtx.fillRect(0, 0, canvasWidth, canvasHeight);
+        offCtx.font = `${fontSizeScaled}px Consolas, Monaco, "Liberation Mono", monospace`;
+        offCtx.textBaseline = "top";
+        offCtx.fillStyle = document.body.classList.contains("light-mode") ? "#000" : "#eee";
+        for (let i = 0; i < lines.length; i++) {
+          offCtx.fillText(lines[i], borderMargin, borderMargin + i * lineHeightScaled);
+        }
+        offCanvas.toBlob(function(blob) {
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "ascii_art.png";
+          a.click();
+        });
+      }
+      function shareAsciiArt() {
+        if (!asciiArt.textContent.trim()) { showNotification("No ASCII art to share", "error"); return; }
+        if (navigator.share) {
+          navigator.share({
+            title: "ASCII Art",
+            text: asciiArt.textContent
+          })
+          .then(() => { showNotification("Shared successfully!", "success"); })
+          .catch((error) => { showNotification("Error sharing: " + error, "error"); });
+        } else {
+          showNotification("Web Share API not supported in your browser", "error");
+        }
+      }
+      
+      // --- Show Notification ---
+      function showNotification(message, type = "success") {
+        const notification = document.createElement("div");
+        notification.className = `notification ${type}`;
+        const icon = document.createElement("i");
+        icon.className = type === "success" ? "fas fa-check-circle" : "fas fa-exclamation-circle";
+        notification.appendChild(icon);
+        notification.appendChild(document.createTextNode(message));
+        notifications.appendChild(notification);
+        setTimeout(() => { notification.remove(); }, 4000);
+      }
+      
+      // --- Instructions Overlay ---
+      instructionsBtn.addEventListener("click", () => { instructionsOverlay.style.display = "block"; });
+      closeInstructionsBtn.addEventListener("click", () => { instructionsOverlay.style.display = "none"; });
+      
+      // --- Load Default Image for Preview ---
+      window.addEventListener("load", function() {
+        const defaultImg = new Image();
+        defaultImg.crossOrigin = "Anonymous";
+        defaultImg.src = "https://i.ibb.co/chHSSFQk/horse.png";
+        defaultImg.onload = function() {
+          currentImage = defaultImg;
+          generateAsciiArt();
+        };
+      });
+      
+      // --- Attach Live Preview Listeners ---
+      [asciiWidth, brightness, contrast, blur, fontSize, lineHeight, invert, ignoreWhite, dithering, ditherAlgorithm, charset, manualCharInput].forEach(ctrl => {
+        ctrl.addEventListener("input", scheduleLiveUpdate);
+        ctrl.addEventListener("change", scheduleLiveUpdate);
+      });
+      edgeMethod.addEventListener("change", () => {
+        if (edgeMethod.value === "sobel") {
+          document.getElementById("sobelThresholdControl").style.display = "flex";
+          document.getElementById("dogThresholdControl").style.display = "none";
+        } else if (edgeMethod.value === "dog") {
+          document.getElementById("dogThresholdControl").style.display = "flex";
+          document.getElementById("sobelThresholdControl").style.display = "none";
+        } else {
+          document.getElementById("sobelThresholdControl").style.display = "none";
+          document.getElementById("dogThresholdControl").style.display = "none";
+        }
+        scheduleLiveUpdate();
+      });
+      edgeThreshold.addEventListener("input", () => {
+        edgeThresholdVal.textContent = edgeThreshold.value;
+        scheduleLiveUpdate();
+      });
+      dogThreshold.addEventListener("input", () => {
+        dogThresholdVal.textContent = dogThreshold.value;
+        scheduleLiveUpdate();
+      });
+      
+      // --- Button Listeners ---
+      resetBtn.addEventListener("click", resetSettings);
+      generateBtn.addEventListener("click", generateRandomAsciiArt);
+      refreshBtn.addEventListener("click", () => { if (currentImage) generateAsciiArt(); });
+      copyBtn.addEventListener("click", copyToClipboard);
+      downloadBtn.addEventListener("click", downloadPNG);
+      shareBtn.addEventListener("click", shareAsciiArt);
+      
+      // --- Reset Settings ---
+      function resetSettings() {
+        asciiWidth.value = 150;
+        brightness.value = 0;
+        contrast.value = 0;
+        blur.value = 0;
+        dithering.checked = true;
+        ditherAlgorithm.value = "floyd";
+        invert.checked = false;
+        ignoreWhite.checked = true;
+        charset.value = "detailed";
+        manualCharControl.style.display = "none";
+        manualCharInput.value = "0";
+        edgeMethod.value = "none";
+        edgeThreshold.value = 100;
+        edgeThresholdVal.textContent = "100";
+        dogThreshold.value = 50;
+        dogThresholdVal.textContent = "50";
+        fontSize.value = 7;
+        lineHeight.value = 100;
+        updateRangeLabels();
+        updateTextStyles();
+        document.querySelectorAll(".section-content").forEach(el => el.classList.remove("collapsed"));
+        generateAsciiArt();
+      }
+      
+      // --- Update Stats Header ---
+      function updateStats(originalSizeText, processTimeText, charCountText) {
+        document.getElementById("originalSize").textContent = originalSizeText;
+        document.getElementById("processTime").textContent = processTimeText;
+        document.getElementById("charCount").textContent = charCountText;
+      }
+      
+      // --- Simple Sobel Edge Detection ---
+      function applyEdgeDetection(gray, width, height, threshold) {
+        let edges = new Array(width * height).fill(255);
+        for (let y = 1; y < height - 1; y++) {
+          for (let x = 1; x < width - 1; x++) {
+            let idx = y * width + x;
+            let a = gray[(y-1)*width + (x-1)];
+            let b = gray[(y-1)*width + x];
+            let c = gray[(y-1)*width + (x+1)];
+            let d = gray[y*width + (x-1)];
+            let e = gray[y*width + x];
+            let f = gray[y*width + (x+1)];
+            let g = gray[(y+1)*width + (x-1)];
+            let h = gray[(y+1)*width + x];
+            let i = gray[(y+1)*width + (x+1)];
+            let Gx = (-1*a) + (0*b) + (1*c) +
+                     (-2*d) + (0*e) + (2*f) +
+                     (-1*g) + (0*h) + (1*i);
+            let Gy = (-1*a) + (-2*b) + (-1*c) +
+                     (0*d) + (0*e) + (0*f) +
+                     (1*g) + (2*h) + (1*i);
+            let magVal = Math.sqrt(Gx*Gx + Gy*Gy);
+            let normalized = (magVal/1442)*255;
+            edges[idx] = normalized > threshold ? 0 : 255;
+          }
+        }
+        return edges;
+      }
+      
+      // --- Generate Random Settings ---
+      function generateRandomAsciiArt() {
+        asciiWidth.value = Math.floor(Math.random()*(300-20+1)) + 20;
+        brightness.value = Math.floor(Math.random()*201) - 100;
+        contrast.value = Math.floor(Math.random()*201) - 100;
+        blur.value = (Math.random()*10).toFixed(1);
+        invert.checked = Math.random() < 0.5;
+        ignoreWhite.checked = Math.random() < 0.5;
+        dithering.checked = Math.random() < 0.5;
+        const ditherAlgos = ["floyd", "atkinson", "noise", "ordered"];
+        ditherAlgorithm.value = ditherAlgos[Math.floor(Math.random()*ditherAlgos.length)];
+        const charsetOptions = ["detailed", "standard", "blocks", "binary", "hex", "manual"];
+        charset.value = charsetOptions[Math.floor(Math.random()*charsetOptions.length)];
+        if (charset.value === "manual") {
+          manualCharControl.style.display = "flex";
+          const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+          manualCharInput.value = chars.charAt(Math.floor(Math.random()*chars.length));
+        } else {
+          manualCharControl.style.display = "none";
+        }
+        const edgeMethods = ["none", "sobel", "dog"];
+        edgeMethod.value = edgeMethods[Math.floor(Math.random()*edgeMethods.length)];
+        if (edgeMethod.value === "sobel") {
+          document.getElementById("sobelThresholdControl").style.display = "flex";
+          document.getElementById("dogThresholdControl").style.display = "none";
+          edgeThreshold.value = Math.floor(Math.random()*256);
+          edgeThresholdVal.textContent = edgeThreshold.value;
+        } else if (edgeMethod.value === "dog") {
+          document.getElementById("dogThresholdControl").style.display = "flex";
+          document.getElementById("sobelThresholdControl").style.display = "none";
+          dogThreshold.value = Math.floor(Math.random()*101);
+          dogThresholdVal.textContent = dogThreshold.value;
+        } else {
+          document.getElementById("sobelThresholdControl").style.display = "none";
+          document.getElementById("dogThresholdControl").style.display = "none";
+        }
+        fontSize.value = Math.floor(Math.random()*(15-5+1)) + 5;
+        lineHeight.value = Math.floor(Math.random()*(150-50+1)) + 50;
+        updateRangeLabels();
+        updateTextStyles();
+        generateAsciiArt();
+      }
+      
+      // --- Attach Live Preview Listeners ---
+      [asciiWidth, brightness, contrast, blur, fontSize, lineHeight, invert, ignoreWhite, dithering, ditherAlgorithm, charset, manualCharInput].forEach(ctrl => {
+        ctrl.addEventListener("input", scheduleLiveUpdate);
+        ctrl.addEventListener("change", scheduleLiveUpdate);
+      });
+      edgeMethod.addEventListener("change", () => {
+        if (edgeMethod.value === "sobel") {
+          document.getElementById("sobelThresholdControl").style.display = "flex";
+          document.getElementById("dogThresholdControl").style.display = "none";
+        } else if (edgeMethod.value === "dog") {
+          document.getElementById("dogThresholdControl").style.display = "flex";
+          document.getElementById("sobelThresholdControl").style.display = "none";
+        } else {
+          document.getElementById("sobelThresholdControl").style.display = "none";
+          document.getElementById("dogThresholdControl").style.display = "none";
+        }
+        scheduleLiveUpdate();
+      });
+      edgeThreshold.addEventListener("input", () => {
+        edgeThresholdVal.textContent = edgeThreshold.value;
+        scheduleLiveUpdate();
+      });
+      dogThreshold.addEventListener("input", () => {
+        dogThresholdVal.textContent = dogThreshold.value;
+        scheduleLiveUpdate();
+      });
+      
+      // --- File Upload Listeners ---
+      fileInput.addEventListener("change", handleFileSelect);
+      dropArea.addEventListener("click", () => fileInput.click());
+      ["dragenter", "dragover", "dragleave", "drop"].forEach(eventName => {
+        dropArea.addEventListener(eventName, preventDefaults, false);
+      });
+      ["dragenter", "dragover"].forEach(eventName => {
+        dropArea.addEventListener(eventName, highlight, false);
+      });
+      ["dragleave", "drop"].forEach(eventName => {
+        dropArea.addEventListener(eventName, unhighlight, false);
+      });
+      dropArea.addEventListener("drop", handleDrop, false);
+      
+      // --- Button Listeners ---
+      resetBtn.addEventListener("click", resetSettings);
+      generateBtn.addEventListener("click", generateRandomAsciiArt);
+      refreshBtn.addEventListener("click", () => { if (currentImage) generateAsciiArt(); });
+      copyBtn.addEventListener("click", copyToClipboard);
+      downloadBtn.addEventListener("click", downloadPNG);
+      shareBtn.addEventListener("click", shareAsciiArt);
+      
+      // --- Reset Settings ---
+      function resetSettings() {
+        asciiWidth.value = 150;
+        brightness.value = 0;
+        contrast.value = 0;
+        blur.value = 0;
+        dithering.checked = true;
+        ditherAlgorithm.value = "floyd";
+        invert.checked = false;
+        ignoreWhite.checked = true;
+        charset.value = "detailed";
+        manualCharControl.style.display = "none";
+        manualCharInput.value = "0";
+        edgeMethod.value = "none";
+        edgeThreshold.value = 100;
+        edgeThresholdVal.textContent = "100";
+        dogThreshold.value = 50;
+        dogThresholdVal.textContent = "50";
+        fontSize.value = 7;
+        lineHeight.value = 100;
+        updateRangeLabels();
+        updateTextStyles();
+        document.querySelectorAll(".section-content").forEach(el => el.classList.remove("collapsed"));
+        generateAsciiArt();
+      }
+      
+      // --- Update Stats Header ---
+      function updateStats(originalSizeText, processTimeText, charCountText) {
+        document.getElementById("originalSize").textContent = originalSizeText;
+        document.getElementById("processTime").textContent = processTimeText;
+        document.getElementById("charCount").textContent = charCountText;
+      }
+      
+      // --- Simple Sobel Edge Detection ---
+      function applyEdgeDetection(gray, width, height, threshold) {
+        let edges = new Array(width * height).fill(255);
+        for (let y = 1; y < height - 1; y++) {
+          for (let x = 1; x < width - 1; x++) {
+            let idx = y * width + x;
+            let a = gray[(y-1)*width + (x-1)];
+            let b = gray[(y-1)*width + x];
+            let c = gray[(y-1)*width + (x+1)];
+            let d = gray[y*width + (x-1)];
+            let e = gray[y*width + x];
+            let f = gray[y*width + (x+1)];
+            let g = gray[(y+1)*width + (x-1)];
+            let h = gray[(y+1)*width + x];
+            let i = gray[(y+1)*width + (x+1)];
+            let Gx = (-1*a) + (0*b) + (1*c) +
+                     (-2*d) + (0*e) + (2*f) +
+                     (-1*g) + (0*h) + (1*i);
+            let Gy = (-1*a) + (-2*b) + (-1*c) +
+                     (0*d) + (0*e) + (0*f) +
+                     (1*g) + (2*h) + (1*i);
+            let magVal = Math.sqrt(Gx*Gx + Gy*Gy);
+            let normalized = (magVal/1442)*255;
+            edges[idx] = normalized > threshold ? 0 : 255;
+          }
+        }
+        return edges;
+      }
+      
+      // --- Generate Random Settings ---
+      function generateRandomAsciiArt() {
+        asciiWidth.value = Math.floor(Math.random()*(300-20+1)) + 20;
+        brightness.value = Math.floor(Math.random()*201) - 100;
+        contrast.value = Math.floor(Math.random()*201) - 100;
+        blur.value = (Math.random()*10).toFixed(1);
+        invert.checked = Math.random() < 0.5;
+        ignoreWhite.checked = Math.random() < 0.5;
+        dithering.checked = Math.random() < 0.5;
+        const ditherAlgos = ["floyd", "atkinson", "noise", "ordered"];
+        ditherAlgorithm.value = ditherAlgos[Math.floor(Math.random()*ditherAlgos.length)];
+        const charsetOptions = ["detailed", "standard", "blocks", "binary", "hex", "manual"];
+        charset.value = charsetOptions[Math.floor(Math.random()*charsetOptions.length)];
+        if (charset.value === "manual") {
+          manualCharControl.style.display = "flex";
+          const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+          manualCharInput.value = chars.charAt(Math.floor(Math.random()*chars.length));
+        } else {
+          manualCharControl.style.display = "none";
+        }
+        const edgeMethods = ["none", "sobel", "dog"];
+        edgeMethod.value = edgeMethods[Math.floor(Math.random()*edgeMethods.length)];
+        if (edgeMethod.value === "sobel") {
+          document.getElementById("sobelThresholdControl").style.display = "flex";
+          document.getElementById("dogThresholdControl").style.display = "none";
+          edgeThreshold.value = Math.floor(Math.random()*256);
+          edgeThresholdVal.textContent = edgeThreshold.value;
+        } else if (edgeMethod.value === "dog") {
+          document.getElementById("dogThresholdControl").style.display = "flex";
+          document.getElementById("sobelThresholdControl").style.display = "none";
+          dogThreshold.value = Math.floor(Math.random()*101);
+          dogThresholdVal.textContent = dogThreshold.value;
+        } else {
+          document.getElementById("sobelThresholdControl").style.display = "none";
+          document.getElementById("dogThresholdControl").style.display = "none";
+        }
+        fontSize.value = Math.floor(Math.random()*(15-5+1)) + 5;
+        lineHeight.value = Math.floor(Math.random()*(150-50+1)) + 50;
+        updateRangeLabels();
+        updateTextStyles();
+        generateAsciiArt();
+      }
+      
+      // --- Button Event Listeners ---
+      resetBtn.addEventListener("click", resetSettings);
+      generateBtn.addEventListener("click", generateRandomAsciiArt);
+      refreshBtn.addEventListener("click", () => { if (currentImage) generateAsciiArt(); });
+      copyBtn.addEventListener("click", copyToClipboard);
+      downloadBtn.addEventListener("click", downloadPNG);
+      shareBtn.addEventListener("click", shareAsciiArt);
+    });
+  </script>
+</body>
+</html>
