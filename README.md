@@ -1,4 +1,4 @@
-#ASCIITypeArt Canvas (Img to Art)
+<< ASCIITypeArt Canvas (Img to Art) >>
 
 Bug Fixes In this patch:
 - File uploader is fixed
